@@ -13,6 +13,7 @@ class HexagonCanvas {
         this.textColor = '#ffffff';
         this.bgColor = '#ffffff';
         this.borderWidth = 2;
+        this.hexGap = 2;
         this.fontFamily = 'Arial, sans-serif';
         this.showInactiveHex = true;
         
@@ -84,6 +85,14 @@ class HexagonCanvas {
             this.updateHexagonColors();
         });
         
+        const hexGapSlider = document.getElementById('hexGap');
+        const hexGapValue = document.getElementById('hexGapValue');
+        hexGapSlider.addEventListener('input', (e) => {
+            this.hexGap = parseFloat(e.target.value);
+            hexGapValue.textContent = this.hexGap;
+            this.updateGridStyles();
+        });
+        
         document.getElementById('fontFamily').addEventListener('change', (e) => {
             this.fontFamily = e.target.value;
             this.updateHexagonColors();
@@ -92,11 +101,6 @@ class HexagonCanvas {
         document.getElementById('showInactiveHex').addEventListener('change', (e) => {
             this.showInactiveHex = e.target.checked;
             this.updateHexagonColors();
-        });
-        
-        // Export
-        document.getElementById('exportImage').addEventListener('click', () => {
-            this.exportImage();
         });
         
         // Text modal
@@ -180,6 +184,15 @@ class HexagonCanvas {
         
         // Double-click to edit text (only if on)
         hex.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            if (hexData.on) {
+                this.openTextModal(hexData);
+            }
+        });
+        
+        // Right-click to edit text (only if on)
+        hex.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
             e.stopPropagation();
             if (hexData.on) {
                 this.openTextModal(hexData);
@@ -276,21 +289,30 @@ class HexagonCanvas {
     applyHexagonStyles(hexElement, hexData) {
         const size = this.hexSize;
         const height = size;
-        const width = size * 1.1547; // width = height * 2 / sqrt(3)
+        const width = size * (2 / Math.sqrt(3)); // Exact: width = height * 2 / sqrt(3)
+        
+        // Precise hexagon tessellation math:
+        // - Row vertical spacing (center to center) = height * 0.75
+        // - For CSS layout: margin needed = (0.75H - H) / 2 = -0.125H per side
+        // - Add half the gap to each side
+        const verticalMargin = -size * 0.125 + this.hexGap / 2;
+        const horizontalMargin = this.hexGap / 2;
         
         hexElement.style.width = width + 'px';
         hexElement.style.height = height + 'px';
-        hexElement.style.margin = `${size * 0.02}px ${size * 0.05}px`;
+        hexElement.style.margin = `${verticalMargin}px ${horizontalMargin}px`;
+        
+        // Use CSS custom properties for pseudo-element styling
+        hexElement.style.setProperty('--border-inset', `${this.borderWidth}px`);
+        hexElement.style.setProperty('--hex-bg-color', this.hexBorderColor);
         
         if (hexData.on) {
-            hexElement.style.background = this.hexOnColor;
-            hexElement.style.boxShadow = `inset 0 0 0 ${this.borderWidth}px ${this.hexBorderColor}`;
+            hexElement.style.setProperty('--hex-fill-color', this.hexOnColor);
             hexElement.style.opacity = '1';
         } else {
-            hexElement.style.background = this.hexOffColor;
-            hexElement.style.boxShadow = `inset 0 0 0 ${this.borderWidth}px ${this.hexBorderColor}`;
+            hexElement.style.setProperty('--hex-fill-color', this.hexOffColor);
             hexElement.style.opacity = this.showInactiveHex ? '0.5' : '0';
-            hexElement.style.pointerEvents = this.showInactiveHex ? 'auto' : 'auto';
+            hexElement.style.pointerEvents = 'auto';
         }
         
         const content = hexElement.querySelector('.hexagon-content');
@@ -302,8 +324,13 @@ class HexagonCanvas {
     }
     
     updateGridStyles() {
-        const offset = this.hexSize * 1.1547 / 2 + this.hexSize * 0.05;
+        // Odd rows offset by exactly half the hexagon width plus gap
+        const hexWidth = this.hexSize * (2 / Math.sqrt(3));
+        const offset = hexWidth / 2 + this.hexGap / 2;
         this.gridContainer.style.setProperty('--hex-offset', offset + 'px');
+        
+        // Add top padding to compensate for negative margins on first row
+        this.gridContainer.style.paddingTop = (this.hexSize * 0.125 + 20) + 'px';
         
         this.hexagons.forEach(hexData => {
             this.applyHexagonStyles(hexData.element, hexData);
@@ -314,131 +341,6 @@ class HexagonCanvas {
         this.hexagons.forEach(hexData => {
             this.applyHexagonStyles(hexData.element, hexData);
         });
-    }
-    
-    async exportImage() {
-        // Find bounding box of active hexagons
-        const activeHexagons = this.hexagons.filter(h => h.on);
-        
-        if (activeHexagons.length === 0) {
-            alert('No active hexagons to export!');
-            return;
-        }
-        
-        // Calculate bounds
-        let minRow = Infinity, maxRow = -Infinity;
-        let minCol = Infinity, maxCol = -Infinity;
-        
-        activeHexagons.forEach(h => {
-            minRow = Math.min(minRow, h.row);
-            maxRow = Math.max(maxRow, h.row);
-            minCol = Math.min(minCol, h.col);
-            maxCol = Math.max(maxCol, h.col);
-        });
-        
-        // Calculate dimensions
-        const hexWidth = this.hexSize * 1.1547;
-        const hexHeight = this.hexSize;
-        const hexMarginX = this.hexSize * 0.05;
-        const hexMarginY = this.hexSize * 0.02;
-        const rowOffset = hexWidth / 2 + hexMarginX;
-        
-        // Calculate canvas size based on active hexagons
-        const padding = 20;
-        
-        // Row height considering overlap (hexagons overlap vertically)
-        const rowHeight = hexHeight * 0.75 + hexMarginY * 2;
-        
-        const canvasWidth = (maxCol - minCol + 1) * (hexWidth + hexMarginX * 2) + rowOffset + padding * 2;
-        const canvasHeight = (maxRow - minRow + 1) * rowHeight + hexHeight * 0.25 + padding * 2;
-        
-        // Create canvas
-        const canvas = document.createElement('canvas');
-        canvas.width = canvasWidth;
-        canvas.height = canvasHeight;
-        const ctx = canvas.getContext('2d');
-        
-        // Fill background
-        ctx.fillStyle = this.bgColor;
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-        
-        // Draw active hexagons
-        activeHexagons.forEach(hexData => {
-            const relRow = hexData.row - minRow;
-            const relCol = hexData.col - minCol;
-            
-            // Calculate position
-            const isOddRow = hexData.row % 2 === 1;
-            const x = padding + relCol * (hexWidth + hexMarginX * 2) + hexWidth / 2 + 
-                      (isOddRow ? rowOffset : 0);
-            const y = padding + relRow * rowHeight + hexHeight / 2;
-            
-            this.drawHexagon(ctx, x, y, hexWidth, hexHeight, hexData);
-        });
-        
-        // Download
-        const link = document.createElement('a');
-        link.download = 'hexagon-canvas.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-    }
-    
-    drawHexagon(ctx, cx, cy, width, height, hexData) {
-        const w = width / 2;
-        const h = height / 2;
-        
-        // Draw hexagon path
-        ctx.beginPath();
-        ctx.moveTo(cx, cy - h);           // Top
-        ctx.lineTo(cx + w, cy - h * 0.5); // Top right
-        ctx.lineTo(cx + w, cy + h * 0.5); // Bottom right
-        ctx.lineTo(cx, cy + h);           // Bottom
-        ctx.lineTo(cx - w, cy + h * 0.5); // Bottom left
-        ctx.lineTo(cx - w, cy - h * 0.5); // Top left
-        ctx.closePath();
-        
-        // Fill
-        ctx.fillStyle = this.hexOnColor;
-        ctx.fill();
-        
-        // Border
-        if (this.borderWidth > 0) {
-            ctx.strokeStyle = this.hexBorderColor;
-            ctx.lineWidth = this.borderWidth;
-            ctx.stroke();
-        }
-        
-        // Text
-        if (hexData.text) {
-            ctx.fillStyle = this.textColor;
-            ctx.font = `600 ${this.calculateExportFontSize(hexData.text, width * 0.65, height * 0.5)}px ${this.fontFamily}`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(hexData.text, cx, cy);
-        }
-    }
-    
-    calculateExportFontSize(text, maxWidth, maxHeight) {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        
-        let fontSize = this.hexSize * 0.4;
-        const minFontSize = 8;
-        
-        while (fontSize > minFontSize) {
-            ctx.font = `600 ${fontSize}px ${this.fontFamily}`;
-            const metrics = ctx.measureText(text);
-            const textWidth = metrics.width;
-            const textHeight = fontSize;
-            
-            if (textWidth <= maxWidth && textHeight <= maxHeight) {
-                break;
-            }
-            
-            fontSize -= 1;
-        }
-        
-        return fontSize;
     }
 }
 

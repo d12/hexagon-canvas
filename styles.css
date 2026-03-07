@@ -12,7 +12,8 @@ body {
 
 .app-container {
     display: flex;
-    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
 }
 
 /* Sidebar Styles */
@@ -23,6 +24,7 @@ body {
     padding: 20px;
     overflow-y: auto;
     flex-shrink: 0;
+    height: 100vh;
 }
 
 .sidebar h1 {
@@ -212,7 +214,31 @@ body {
     align-items: center;
     justify-content: center;
     transition: transform 0.15s ease;
+    background: transparent !important;
+}
+
+.hexagon::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    background: var(--hex-bg-color);
+    z-index: -1;
+}
+
+.hexagon::after {
+    content: '';
+    position: absolute;
+    top: var(--border-inset);
+    left: var(--border-inset);
+    right: var(--border-inset);
+    bottom: var(--border-inset);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    background: var(--hex-fill-color);
+    z-index: -1;
 }
 
 .hexagon:hover {

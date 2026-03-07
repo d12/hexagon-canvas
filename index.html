@@ -65,6 +65,11 @@
                     <span id="borderWidthValue">2</span>
                 </div>
                 <div class="input-group">
+                    <label for="hexGap">Hexagon Gap:</label>
+                    <input type="range" id="hexGap" min="0" max="10" value="2" step="1">
+                    <span id="hexGapValue">2</span>
+                </div>
+                <div class="input-group">
                     <label for="fontFamily">Font:</label>
                     <select id="fontFamily">
                         <option value="Arial, sans-serif">Arial</option>
@@ -82,15 +87,10 @@
             </section>
 
             <section class="config-section">
-                <h2>Export</h2>
-                <button id="exportImage" class="btn btn-success">Export as PNG</button>
-            </section>
-
-            <section class="config-section">
                 <h2>Instructions</h2>
                 <ul class="instructions">
                     <li>Click a hexagon to toggle it on/off</li>
-                    <li>Double-click an active hexagon to add text</li>
+                    <li>Double-click or right-click an active hexagon to add text</li>
                     <li>Press Enter or click outside to save text</li>
                     <li>Press Escape to cancel editing</li>
                 </ul>
