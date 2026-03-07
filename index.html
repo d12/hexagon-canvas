@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hexagon Canvas</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <h1>Hexagon Canvas</h1>
+            
+            <section class="config-section">
+                <h2>Grid Size</h2>
+                <div class="input-group">
+                    <label for="gridWidth">Width (columns):</label>
+                    <input type="number" id="gridWidth" min="1" max="50" value="10">
+                </div>
+                <div class="input-group">
+                    <label for="gridHeight">Height (rows):</label>
+                    <input type="number" id="gridHeight" min="1" max="50" value="8">
+                </div>
+                <button id="regenerateGrid" class="btn btn-primary">Regenerate Grid</button>
+            </section>
+
+            <section class="config-section">
+                <h2>Hexagon Size</h2>
+                <div class="input-group">
+                    <label for="hexSize">Size (px):</label>
+                    <input type="range" id="hexSize" min="30" max="100" value="50">
+                    <span id="hexSizeValue">50</span>
+                </div>
+            </section>
+
+            <section class="config-section">
+                <h2>Colors</h2>
+                <div class="input-group">
+                    <label for="hexOnColor">Active Hexagon:</label>
+                    <input type="color" id="hexOnColor" value="#4a90d9">
+                </div>
+                <div class="input-group">
+                    <label for="hexOffColor">Inactive Hexagon:</label>
+                    <input type="color" id="hexOffColor" value="#e0e0e0">
+                </div>
+                <div class="input-group">
+                    <label for="hexBorderColor">Border:</label>
+                    <input type="color" id="hexBorderColor" value="#333333">
+                </div>
+                <div class="input-group">
+                    <label for="textColor">Text:</label>
+                    <input type="color" id="textColor" value="#ffffff">
+                </div>
+                <div class="input-group">
+                    <label for="bgColor">Background:</label>
+                    <input type="color" id="bgColor" value="#ffffff">
+                </div>
+            </section>
+
+            <section class="config-section">
+                <h2>Style Options</h2>
+                <div class="input-group">
+                    <label for="borderWidth">Border Width:</label>
+                    <input type="range" id="borderWidth" min="0" max="5" value="2" step="0.5">
+                    <span id="borderWidthValue">2</span>
+                </div>
+                <div class="input-group">
+                    <label for="fontFamily">Font:</label>
+                    <select id="fontFamily">
+                        <option value="Arial, sans-serif">Arial</option>
+                        <option value="Georgia, serif">Georgia</option>
+                        <option value="'Courier New', monospace">Courier New</option>
+                        <option value="'Times New Roman', serif">Times New Roman</option>
+                        <option value="Verdana, sans-serif">Verdana</option>
+                        <option value="Impact, sans-serif">Impact</option>
+                    </select>
+                </div>
+                <div class="input-group checkbox-group">
+                    <input type="checkbox" id="showInactiveHex" checked>
+                    <label for="showInactiveHex">Show inactive hexagons</label>
+                </div>
+            </section>
+
+            <section class="config-section">
+                <h2>Export</h2>
+                <button id="exportImage" class="btn btn-success">Export as PNG</button>
+            </section>
+
+            <section class="config-section">
+                <h2>Instructions</h2>
+                <ul class="instructions">
+                    <li>Click a hexagon to toggle it on/off</li>
+                    <li>Double-click an active hexagon to add text</li>
+                    <li>Press Enter or click outside to save text</li>
+                    <li>Press Escape to cancel editing</li>
+                </ul>
+            </section>
+        </aside>
+
+        <main class="canvas-container">
+            <div id="hexGrid" class="hex-grid"></div>
+        </main>
+    </div>
+
+    <!-- Text input modal -->
+    <div id="textModal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Enter Hexagon Text</h3>
+            <input type="text" id="hexTextInput" placeholder="Enter text...">
+            <div class="modal-buttons">
+                <button id="saveText" class="btn btn-primary">Save</button>
+                <button id="cancelText" class="btn btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
