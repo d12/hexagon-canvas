@@ -232,8 +232,7 @@ class HexagonCanvas {
         if (this.editingHex) {
             this.editingHex.text = this.textInput.value;
             const content = this.editingHex.element.querySelector('.hexagon-content');
-            content.textContent = this.editingHex.text;
-            this.autoSizeText(content, this.hexSize);
+            this.autoSizeText(content, this.hexSize, this.editingHex.text);
         }
         this.closeTextModal();
     }
@@ -244,8 +243,12 @@ class HexagonCanvas {
         this.textInput.value = '';
     }
     
-    autoSizeText(element, hexSize) {
-        const text = element.textContent;
+    autoSizeText(element, hexSize, text) {
+        // Use provided text parameter, fallback to element content for backwards compatibility
+        if (text === undefined) {
+            text = element.textContent;
+        }
+        
         if (!text) {
             element.style.fontSize = '';
             element.innerHTML = '';
@@ -270,45 +273,6 @@ class HexagonCanvas {
             text-align: center;
         `;
         document.body.appendChild(temp);
-        
-        // Helper to calculate font size that fits N characters in available width
-        const calcFontSizeForChars = (numChars) => {
-            // Binary search for the font size that fits numChars 'W' characters
-            let low = minFontSize;
-            let high = hexSize * 0.5;
-            let bestSize = low;
-            
-            while (low <= high) {
-                const mid = Math.floor((low + high) / 2);
-                temp.style.fontSize = mid + 'px';
-                temp.style.whiteSpace = 'nowrap';
-                temp.innerHTML = 'W'.repeat(numChars);
-                
-                if (temp.offsetWidth <= availableWidth) {
-                    bestSize = mid;
-                    low = mid + 1;
-                } else {
-                    high = mid - 1;
-                }
-            }
-            return bestSize;
-        };
-        
-        // Helper to check if content fits at given font size
-        const fits = (content, fontSize) => {
-            temp.style.fontSize = fontSize + 'px';
-            temp.style.whiteSpace = 'nowrap';
-            temp.innerHTML = content;
-            return temp.offsetWidth <= availableWidth && temp.offsetHeight <= availableHeight;
-        };
-        
-        // Helper to check if multi-line content fits
-        const fitsMultiLine = (lines, fontSize) => {
-            temp.style.fontSize = fontSize + 'px';
-            temp.style.whiteSpace = 'nowrap';
-            temp.innerHTML = lines.join('<br>');
-            return temp.offsetWidth <= availableWidth && temp.offsetHeight <= availableHeight;
-        };
         
         // Wrap text respecting maxCharsPerLine, preferring space breaks
         const wrapText = (text, maxChars) => {
@@ -349,17 +313,32 @@ class HexagonCanvas {
             return lines;
         };
         
-        // Find the longest line to determine font size
+        // Helper to calculate font size that fits actual text content
+        const calcFontSizeForText = (lines) => {
+            const maxFontSize = hexSize * 0.5;
+            let low = minFontSize;
+            let high = maxFontSize;
+            let bestSize = low;
+            
+            while (low <= high) {
+                const mid = Math.floor((low + high) / 2);
+                temp.style.fontSize = mid + 'px';
+                temp.style.whiteSpace = 'nowrap';
+                temp.innerHTML = lines.join('<br>');
+                
+                if (temp.offsetWidth <= availableWidth && temp.offsetHeight <= availableHeight) {
+                    bestSize = mid;
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+            return bestSize;
+        };
+        
+        // Wrap text and calculate optimal font size for actual content
         const lines = wrapText(text, maxCharsPerLine);
-        const maxLineLength = Math.max(...lines.map(l => l.length));
-        
-        // Calculate font size that fits the longest line
-        let fontSize = calcFontSizeForChars(maxLineLength);
-        
-        // Verify it fits vertically, reduce if needed
-        while (fontSize >= minFontSize && !fitsMultiLine(lines, fontSize)) {
-            fontSize--;
-        }
+        let fontSize = calcFontSizeForText(lines);
         
         document.body.removeChild(temp);
         
@@ -408,7 +387,7 @@ class HexagonCanvas {
         if (content) {
             content.style.color = this.textColor;
             content.style.fontFamily = this.fontFamily;
-            this.autoSizeText(content, size);
+            this.autoSizeText(content, size, hexData.text);
         }
     }
     
