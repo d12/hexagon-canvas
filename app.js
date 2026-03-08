@@ -12,7 +12,7 @@ class HexagonCanvas {
         this.hexBorderColor = '#333333';
         this.textColor = '#ffffff';
         this.bgColor = '#ffffff';
-        this.borderWidth = 2;
+        this.borderWidth = 0.5;
         this.hexGap = 2;
         this.fontFamily = 'Arial, sans-serif';
         this.showInactiveHex = true;
@@ -29,8 +29,10 @@ class HexagonCanvas {
     }
     
     init() {
+        this.loadStateFromURL();
         this.bindControls();
         this.generateGrid();
+        this.applyStateToUI();
     }
     
     bindControls() {
@@ -77,14 +79,6 @@ class HexagonCanvas {
         });
         
         // Style options
-        const borderWidthSlider = document.getElementById('borderWidth');
-        const borderWidthValue = document.getElementById('borderWidthValue');
-        borderWidthSlider.addEventListener('input', (e) => {
-            this.borderWidth = parseFloat(e.target.value);
-            borderWidthValue.textContent = this.borderWidth;
-            this.updateHexagonColors();
-        });
-        
         const hexGapSlider = document.getElementById('hexGap');
         const hexGapValue = document.getElementById('hexGapValue');
         hexGapSlider.addEventListener('input', (e) => {
@@ -123,6 +117,16 @@ class HexagonCanvas {
             if (e.target === this.textModal) {
                 this.closeTextModal();
             }
+        });
+        
+        // Reset canvas button
+        document.getElementById('resetCanvas').addEventListener('click', () => {
+            this.resetCanvas();
+        });
+        
+        // Save state button
+        document.getElementById('saveState').addEventListener('click', () => {
+            this.saveStateToURL();
         });
     }
     
@@ -244,46 +248,131 @@ class HexagonCanvas {
         const text = element.textContent;
         if (!text) {
             element.style.fontSize = '';
+            element.innerHTML = '';
             return;
         }
         
         // Calculate available space (hexagon inner area with margins)
-        const availableWidth = hexSize * 0.65;
-        const availableHeight = hexSize * 0.5;
+        const availableWidth = hexSize * 0.75;
+        const availableHeight = hexSize * 0.6;
+        const maxCharsPerLine = 12;
         
-        // Start with a large font size and reduce until it fits
-        let fontSize = hexSize * 0.4;
-        const minFontSize = 8;
-        
-        element.style.fontSize = fontSize + 'px';
+        const minFontSize = 6;
         
         // Create a temporary element to measure text
-        const temp = document.createElement('span');
+        const temp = document.createElement('div');
         temp.style.cssText = `
             position: absolute;
             visibility: hidden;
-            white-space: nowrap;
             font-family: ${this.fontFamily};
             font-weight: 600;
+            line-height: 1.1;
+            text-align: center;
         `;
         document.body.appendChild(temp);
         
-        while (fontSize > minFontSize) {
+        // Helper to calculate font size that fits N characters in available width
+        const calcFontSizeForChars = (numChars) => {
+            // Binary search for the font size that fits numChars 'W' characters
+            let low = minFontSize;
+            let high = hexSize * 0.5;
+            let bestSize = low;
+            
+            while (low <= high) {
+                const mid = Math.floor((low + high) / 2);
+                temp.style.fontSize = mid + 'px';
+                temp.style.whiteSpace = 'nowrap';
+                temp.innerHTML = 'W'.repeat(numChars);
+                
+                if (temp.offsetWidth <= availableWidth) {
+                    bestSize = mid;
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+            return bestSize;
+        };
+        
+        // Helper to check if content fits at given font size
+        const fits = (content, fontSize) => {
             temp.style.fontSize = fontSize + 'px';
-            temp.textContent = text;
+            temp.style.whiteSpace = 'nowrap';
+            temp.innerHTML = content;
+            return temp.offsetWidth <= availableWidth && temp.offsetHeight <= availableHeight;
+        };
+        
+        // Helper to check if multi-line content fits
+        const fitsMultiLine = (lines, fontSize) => {
+            temp.style.fontSize = fontSize + 'px';
+            temp.style.whiteSpace = 'nowrap';
+            temp.innerHTML = lines.join('<br>');
+            return temp.offsetWidth <= availableWidth && temp.offsetHeight <= availableHeight;
+        };
+        
+        // Wrap text respecting maxCharsPerLine, preferring space breaks
+        const wrapText = (text, maxChars) => {
+            const words = text.split(' ');
+            const lines = [];
+            let currentLine = '';
             
-            const textWidth = temp.offsetWidth;
-            const textHeight = temp.offsetHeight;
-            
-            if (textWidth <= availableWidth && textHeight <= availableHeight) {
-                break;
+            for (const word of words) {
+                if (word.length > maxChars) {
+                    // Word is longer than max chars, need to break it
+                    if (currentLine) {
+                        lines.push(currentLine);
+                        currentLine = '';
+                    }
+                    // Break the long word into chunks
+                    for (let i = 0; i < word.length; i += maxChars) {
+                        const chunk = word.slice(i, i + maxChars);
+                        if (i + maxChars < word.length) {
+                            lines.push(chunk);
+                        } else {
+                            currentLine = chunk;
+                        }
+                    }
+                } else if (currentLine === '') {
+                    currentLine = word;
+                } else if ((currentLine + ' ' + word).length <= maxChars) {
+                    currentLine += ' ' + word;
+                } else {
+                    lines.push(currentLine);
+                    currentLine = word;
+                }
             }
             
-            fontSize -= 1;
+            if (currentLine) {
+                lines.push(currentLine);
+            }
+            
+            return lines;
+        };
+        
+        // Find the longest line to determine font size
+        const lines = wrapText(text, maxCharsPerLine);
+        const maxLineLength = Math.max(...lines.map(l => l.length));
+        
+        // Calculate font size that fits the longest line
+        let fontSize = calcFontSizeForChars(maxLineLength);
+        
+        // Verify it fits vertically, reduce if needed
+        while (fontSize >= minFontSize && !fitsMultiLine(lines, fontSize)) {
+            fontSize--;
         }
         
         document.body.removeChild(temp);
-        element.style.fontSize = fontSize + 'px';
+        
+        if (fontSize >= minFontSize) {
+            element.style.fontSize = fontSize + 'px';
+            element.style.wordBreak = 'normal';
+            element.innerHTML = lines.join('<br>');
+        } else {
+            // Fallback: use minimum font size
+            element.style.fontSize = minFontSize + 'px';
+            element.style.wordBreak = 'normal';
+            element.innerHTML = lines.join('<br>');
+        }
     }
     
     applyHexagonStyles(hexElement, hexData) {
@@ -341,6 +430,127 @@ class HexagonCanvas {
         this.hexagons.forEach(hexData => {
             this.applyHexagonStyles(hexData.element, hexData);
         });
+    }
+    
+    resetCanvas() {
+        if (confirm('Are you sure you want to reset the canvas? This will clear all hexagons and text.')) {
+            // Reset all hexagon states
+            this.hexagons.forEach(hexData => {
+                hexData.on = false;
+                hexData.text = '';
+                hexData.element.classList.remove('on');
+                const content = hexData.element.querySelector('.hexagon-content');
+                content.textContent = '';
+                content.innerHTML = '';
+                this.applyHexagonStyles(hexData.element, hexData);
+            });
+        }
+    }
+    
+    saveStateToURL() {
+        const state = {
+            // Grid settings
+            gw: this.gridWidth,
+            gh: this.gridHeight,
+            hs: this.hexSize,
+            // Colors
+            hoc: this.hexOnColor,
+            hofc: this.hexOffColor,
+            hbc: this.hexBorderColor,
+            tc: this.textColor,
+            bg: this.bgColor,
+            // Style options
+            hg: this.hexGap,
+            ff: this.fontFamily,
+            sih: this.showInactiveHex ? 1 : 0,
+            // Hexagon data - only save active hexagons with text
+            hex: this.hexagons
+                .filter(h => h.on)
+                .map(h => ({
+                    r: h.row,
+                    c: h.col,
+                    t: h.text || ''
+                }))
+        };
+        
+        const stateString = encodeURIComponent(JSON.stringify(state));
+        const url = `${window.location.origin}${window.location.pathname}?state=${stateString}`;
+        
+        navigator.clipboard.writeText(url).then(() => {
+            alert('URL copied to clipboard!');
+        }).catch(err => {
+            // Fallback: show the URL in a prompt
+            prompt('Copy this URL:', url);
+        });
+    }
+    
+    loadStateFromURL() {
+        const params = new URLSearchParams(window.location.search);
+        const stateParam = params.get('state');
+        
+        if (!stateParam) return;
+        
+        try {
+            const state = JSON.parse(decodeURIComponent(stateParam));
+            
+            // Grid settings
+            if (state.gw) this.gridWidth = state.gw;
+            if (state.gh) this.gridHeight = state.gh;
+            if (state.hs) this.hexSize = state.hs;
+            
+            // Colors
+            if (state.hoc) this.hexOnColor = state.hoc;
+            if (state.hofc) this.hexOffColor = state.hofc;
+            if (state.hbc) this.hexBorderColor = state.hbc;
+            if (state.tc) this.textColor = state.tc;
+            if (state.bg) this.bgColor = state.bg;
+            
+            // Style options
+            if (state.hg !== undefined) this.hexGap = state.hg;
+            if (state.ff) this.fontFamily = state.ff;
+            if (state.sih !== undefined) this.showInactiveHex = state.sih === 1;
+            
+            // Store hexagon data to be applied after grid generation
+            this._pendingHexData = state.hex || [];
+        } catch (e) {
+            console.error('Failed to load state from URL:', e);
+        }
+    }
+    
+    applyStateToUI() {
+        // Update UI controls to reflect loaded state
+        document.getElementById('gridWidth').value = this.gridWidth;
+        document.getElementById('gridHeight').value = this.gridHeight;
+        document.getElementById('hexSize').value = this.hexSize;
+        document.getElementById('hexSizeValue').textContent = this.hexSize;
+        document.getElementById('hexOnColor').value = this.hexOnColor;
+        document.getElementById('hexOffColor').value = this.hexOffColor;
+        document.getElementById('hexBorderColor').value = this.hexBorderColor;
+        document.getElementById('textColor').value = this.textColor;
+        document.getElementById('bgColor').value = this.bgColor;
+        document.getElementById('hexGap').value = this.hexGap;
+        document.getElementById('hexGapValue').textContent = this.hexGap;
+        document.getElementById('fontFamily').value = this.fontFamily;
+        document.getElementById('showInactiveHex').checked = this.showInactiveHex;
+        
+        // Apply background color
+        this.gridContainer.style.background = this.bgColor;
+        
+        // Apply pending hexagon data if any
+        if (this._pendingHexData && this._pendingHexData.length > 0) {
+            this._pendingHexData.forEach(hexState => {
+                const hexData = this.hexagons.find(h => h.row === hexState.r && h.col === hexState.c);
+                if (hexData) {
+                    hexData.on = true;
+                    hexData.text = hexState.t || '';
+                    hexData.element.classList.add('on');
+                    const content = hexData.element.querySelector('.hexagon-content');
+                    content.textContent = hexData.text;
+                    this.applyHexagonStyles(hexData.element, hexData);
+                }
+            });
+            this._pendingHexData = null;
+        }
     }
 }
 
