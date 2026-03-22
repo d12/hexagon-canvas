@@ -16,6 +16,7 @@ class HexagonCanvas {
         this.hexGap = 2;
         this.fontFamily = 'Arial, sans-serif';
         this.showInactiveHex = true;
+        this.textSize = 12;
         
         // Currently editing hexagon
         this.editingHex = null;
@@ -89,6 +90,15 @@ class HexagonCanvas {
         
         document.getElementById('fontFamily').addEventListener('change', (e) => {
             this.fontFamily = e.target.value;
+            this.updateHexagonColors();
+        });
+        
+        // Text size
+        const textSizeSlider = document.getElementById('textSize');
+        const textSizeValue = document.getElementById('textSizeValue');
+        textSizeSlider.addEventListener('input', (e) => {
+            this.textSize = parseInt(e.target.value);
+            textSizeValue.textContent = this.textSize;
             this.updateHexagonColors();
         });
         
@@ -232,7 +242,7 @@ class HexagonCanvas {
         if (this.editingHex) {
             this.editingHex.text = this.textInput.value;
             const content = this.editingHex.element.querySelector('.hexagon-content');
-            this.autoSizeText(content, this.hexSize, this.editingHex.text);
+            this.applyTextSize(content, this.editingHex.text);
         }
         this.closeTextModal();
     }
@@ -243,115 +253,15 @@ class HexagonCanvas {
         this.textInput.value = '';
     }
     
-    autoSizeText(element, hexSize, text) {
-        // Use provided text parameter, fallback to element content for backwards compatibility
-        if (text === undefined) {
-            text = element.textContent;
-        }
-        
+    applyTextSize(element, text) {
         if (!text) {
             element.style.fontSize = '';
-            element.innerHTML = '';
+            element.textContent = '';
             return;
         }
         
-        // Calculate available space (hexagon inner area with margins)
-        const availableWidth = hexSize * 0.75;
-        const availableHeight = hexSize * 0.6;
-        const maxCharsPerLine = 12;
-        
-        const minFontSize = 6;
-        
-        // Create a temporary element to measure text
-        const temp = document.createElement('div');
-        temp.style.cssText = `
-            position: absolute;
-            visibility: hidden;
-            font-family: ${this.fontFamily};
-            font-weight: 600;
-            line-height: 1.1;
-            text-align: center;
-        `;
-        document.body.appendChild(temp);
-        
-        // Wrap text respecting maxCharsPerLine, preferring space breaks
-        const wrapText = (text, maxChars) => {
-            const words = text.split(' ');
-            const lines = [];
-            let currentLine = '';
-            
-            for (const word of words) {
-                if (word.length > maxChars) {
-                    // Word is longer than max chars, need to break it
-                    if (currentLine) {
-                        lines.push(currentLine);
-                        currentLine = '';
-                    }
-                    // Break the long word into chunks
-                    for (let i = 0; i < word.length; i += maxChars) {
-                        const chunk = word.slice(i, i + maxChars);
-                        if (i + maxChars < word.length) {
-                            lines.push(chunk);
-                        } else {
-                            currentLine = chunk;
-                        }
-                    }
-                } else if (currentLine === '') {
-                    currentLine = word;
-                } else if ((currentLine + ' ' + word).length <= maxChars) {
-                    currentLine += ' ' + word;
-                } else {
-                    lines.push(currentLine);
-                    currentLine = word;
-                }
-            }
-            
-            if (currentLine) {
-                lines.push(currentLine);
-            }
-            
-            return lines;
-        };
-        
-        // Helper to calculate font size that fits actual text content
-        const calcFontSizeForText = (lines) => {
-            const maxFontSize = hexSize * 0.5;
-            let low = minFontSize;
-            let high = maxFontSize;
-            let bestSize = low;
-            
-            while (low <= high) {
-                const mid = Math.floor((low + high) / 2);
-                temp.style.fontSize = mid + 'px';
-                temp.style.whiteSpace = 'nowrap';
-                temp.innerHTML = lines.join('<br>');
-                
-                if (temp.offsetWidth <= availableWidth && temp.offsetHeight <= availableHeight) {
-                    bestSize = mid;
-                    low = mid + 1;
-                } else {
-                    high = mid - 1;
-                }
-            }
-            return bestSize;
-        };
-        
-        // Wrap text and calculate optimal font size for actual content
-        const lines = wrapText(text, maxCharsPerLine);
-        let fontSize = calcFontSizeForText(lines);
-        
-        document.body.removeChild(temp);
-        
-        if (fontSize >= minFontSize) {
-            element.style.fontSize = fontSize + 'px';
-            element.style.wordBreak = 'normal';
-            element.innerHTML = lines.join('<br>');
-        } else {
-            // Fallback: use minimum font size
-            element.style.fontSize = minFontSize + 'px';
-            element.style.wordBreak = 'normal';
-            element.innerHTML = lines.join('<br>');
-        }
+        element.style.fontSize = this.textSize + 'px';
+        element.textContent = text;
     }
     
     applyHexagonStyles(hexElement, hexData) {
@@ -387,7 +297,7 @@ class HexagonCanvas {
         if (content) {
             content.style.color = this.textColor;
             content.style.fontFamily = this.fontFamily;
-            this.autoSizeText(content, size, hexData.text);
+            this.applyTextSize(content, hexData.text);
         }
     }
     
@@ -442,6 +352,7 @@ class HexagonCanvas {
             hg: this.hexGap,
             ff: this.fontFamily,
             sih: this.showInactiveHex ? 1 : 0,
+            ts: this.textSize,
             // Hexagon data - only save active hexagons with text
             hex: this.hexagons
                 .filter(h => h.on)
@@ -488,6 +399,7 @@ class HexagonCanvas {
             if (state.hg !== undefined) this.hexGap = state.hg;
             if (state.ff) this.fontFamily = state.ff;
             if (state.sih !== undefined) this.showInactiveHex = state.sih === 1;
+            if (state.ts !== undefined) this.textSize = state.ts;
             
             // Store hexagon data to be applied after grid generation
             this._pendingHexData = state.hex || [];
@@ -510,6 +422,8 @@ class HexagonCanvas {
         document.getElementById('hexGap').value = this.hexGap;
         document.getElementById('hexGapValue').textContent = this.hexGap;
         document.getElementById('fontFamily').value = this.fontFamily;
+        document.getElementById('textSize').value = this.textSize;
+        document.getElementById('textSizeValue').textContent = this.textSize;
         document.getElementById('showInactiveHex').checked = this.showInactiveHex;
         
         // Apply background color
